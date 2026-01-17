@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  vault:
+    image: hashicorp/vault:1.13
+    command: vault server -dev -dev-root-token-id=${VAULT_TOKEN} -dev-listen-address=0.0.0.0:8200
+    ports:
+      - "8200:8200"
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      - postgres
+      - vault
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      VAULT_KV_MOUNT: ${VAULT_KV_MOUNT}
+      GATEWAY_PUBLIC_WS_URL: ${GATEWAY_PUBLIC_WS_URL}
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY}
+    volumes:
+      - ./infra:/app/infra
+      - recordings:/data/recordings
+    ports:
+      - "8000:8000"
+
+  gateway:
+    build:
+      context: ./gateway
+    depends_on:
+      - backend
+      - vault
+    env_file: .env
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      VAULT_KV_MOUNT: ${VAULT_KV_MOUNT}
+      RECORDINGS_DIR: /data/recordings
+      BACKEND_INTERNAL_URL: http://backend:8000
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY}
+    volumes:
+      - recordings:/data/recordings
+    ports:
+      - "8081:8081"
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+      - gateway
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+
+  ssh-target:
+    image: linuxserver/openssh-server:latest
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: Etc/UTC
+      USER_NAME: demo
+      USER_PASSWORD: demo123
+      PASSWORD_ACCESS: "true"
+      SUDO_ACCESS: "true"
+    ports:
+      - "2222:2222"
+
+volumes:
+  pgdata:
+  recordings:
