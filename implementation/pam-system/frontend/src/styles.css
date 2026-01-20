@@ -4,8 +4,13 @@
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
+  overflow-x: hidden;
 }
 
 .app {
@@ -50,6 +55,7 @@ body {
   padding: 16px;
   margin-bottom: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  overflow-wrap: anywhere;
 }
 
 input, select, textarea {
@@ -78,12 +84,15 @@ button.secondary {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  table-layout: fixed;
 }
 
 .table th, .table td {
   text-align: left;
   border-bottom: 1px solid #e5e7eb;
   padding: 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .terminal {
@@ -99,4 +108,40 @@ button.secondary {
   padding: 10px;
   border-radius: 8px;
   color: #9a3412;
+  overflow-wrap: anywhere;
+}
+
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+}
+
+.toast {
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  color: #f9fafb;
+  background: #111827;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.toast-success {
+  background: #166534;
+}
+
+.toast-error {
+  background: #b91c1c;
+}
+
+.toast-info {
+  background: #1f2937;
 }

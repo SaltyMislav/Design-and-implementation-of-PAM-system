@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import API_URL, { apiFetch, clearTokens, getTokens, setTokens } from "./api";
 import LoginPage from "./pages/LoginPage";
@@ -9,6 +9,8 @@ import SessionsPage from "./pages/SessionsPage";
 import TerminalPage from "./pages/TerminalPage";
 import ReplayPage from "./pages/ReplayPage";
 import MfaPage from "./pages/MfaPage";
+import AuditPage from "./pages/AuditPage";
+import ToastProvider from "./components/ToastProvider";
 
 const AuthContext = createContext(null);
 
@@ -28,6 +30,7 @@ function Layout({ children }) {
           <NavLink to="/approvals">Approvals</NavLink>
           <NavLink to="/sessions">Sessions</NavLink>
           <NavLink to="/mfa">Admin MFA</NavLink>
+          <NavLink to="/audit">Audit Logs</NavLink>
         </nav>
         <div>
           <button className="secondary" onClick={auth.logout}>Log out</button>
@@ -83,18 +86,35 @@ export default function App() {
     }
   }), [user, navigate]);
 
+  useEffect(() => {
+    const handler = () => {
+      if (user) {
+        auth.logout();
+      } else {
+        clearTokens();
+        localStorage.removeItem("user");
+        navigate("/");
+      }
+    };
+    window.addEventListener("auth:unauthorized", handler);
+    return () => window.removeEventListener("auth:unauthorized", handler);
+  }, [auth, navigate, user]);
+
   return (
     <AuthContext.Provider value={auth}>
-      <Routes>
-        <Route path="/" element={user ? <Layout><AssetsPage /></Layout> : <LoginPage />} />
-        <Route path="/assets" element={user ? <Layout><AssetsPage /></Layout> : <LoginPage />} />
-        <Route path="/jit" element={user ? <Layout><JitRequestPage /></Layout> : <LoginPage />} />
-        <Route path="/approvals" element={user ? <Layout><ApprovalsPage /></Layout> : <LoginPage />} />
-        <Route path="/sessions" element={user ? <Layout><SessionsPage /></Layout> : <LoginPage />} />
-        <Route path="/sessions/:id" element={user ? <Layout><TerminalPage /></Layout> : <LoginPage />} />
-        <Route path="/replay/:id" element={user ? <Layout><ReplayPage /></Layout> : <LoginPage />} />
-        <Route path="/mfa" element={user ? <Layout><MfaPage /></Layout> : <LoginPage />} />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          <Route path="/" element={user ? <Layout><AssetsPage /></Layout> : <LoginPage />} />
+          <Route path="/assets" element={user ? <Layout><AssetsPage /></Layout> : <LoginPage />} />
+          <Route path="/jit" element={user ? <Layout><JitRequestPage /></Layout> : <LoginPage />} />
+          <Route path="/approvals" element={user ? <Layout><ApprovalsPage /></Layout> : <LoginPage />} />
+          <Route path="/sessions" element={user ? <Layout><SessionsPage /></Layout> : <LoginPage />} />
+          <Route path="/sessions/:id" element={user ? <Layout><TerminalPage /></Layout> : <LoginPage />} />
+          <Route path="/replay/:id" element={user ? <Layout><ReplayPage /></Layout> : <LoginPage />} />
+          <Route path="/mfa" element={user ? <Layout><MfaPage /></Layout> : <LoginPage />} />
+          <Route path="/audit" element={user ? <Layout><AuditPage /></Layout> : <LoginPage />} />
+        </Routes>
+      </ToastProvider>
     </AuthContext.Provider>
   );
 }

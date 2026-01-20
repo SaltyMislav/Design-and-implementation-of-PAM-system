@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 
 export default function TerminalPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const termRef = useRef(null);
+  const socketRef = useRef(null);
   const [status, setStatus] = useState("Connecting...");
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export default function TerminalPage() {
 
     const socket = new WebSocket(`${wsUrl}?token=${token}`);
     socket.binaryType = "arraybuffer";
+    socketRef.current = socket;
 
     socket.onopen = () => {
       setStatus("Connected");
@@ -60,7 +63,21 @@ export default function TerminalPage() {
   return (
     <div>
       <div className="card">
-        <h2>Live Session</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2>Live Session</h2>
+          <button
+            className="secondary"
+            onClick={() => {
+              if (socketRef.current) {
+                socketRef.current.close();
+              }
+              setStatus("Disconnected");
+              navigate("/sessions");
+            }}
+          >
+            Exit Session
+          </button>
+        </div>
         <p>{status}</p>
         <div className="terminal" ref={termRef}></div>
       </div>

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core import security
 from app.core.audit import create_audit_event
 from app.core.config import settings
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_admin, require_admin_mfa
 from app.db import get_db
 from app.models import Role, User
 from app.schemas import (
@@ -112,6 +112,8 @@ def mfa_setup(
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> MfaSetupResponse:
+    if user.mfa_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA already enabled")
     secret = pyotp.random_base32()
     user.mfa_secret = secret
     user.mfa_enabled = False
@@ -129,6 +131,8 @@ def mfa_enable(
     db: Session = Depends(get_db),
     request: Request = None,
 ) -> dict:
+    if user.mfa_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA already enabled")
     if not user.mfa_secret:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA not initialized")
     totp = pyotp.TOTP(user.mfa_secret)
@@ -146,3 +150,24 @@ def mfa_enable(
         ip=request.client.host if request and request.client else None,
     )
     return {"status": "enabled"}
+
+
+@router.post("/mfa/disable")
+def mfa_disable(
+    user: User = Depends(require_admin_mfa),
+    db: Session = Depends(get_db),
+    request: Request = None,
+) -> dict:
+    user.mfa_enabled = False
+    user.mfa_secret = None
+    db.add(user)
+    db.commit()
+    create_audit_event(
+        db,
+        actor_id=user.id,
+        action="mfa_disable",
+        resource_type="user",
+        resource_id=user.id,
+        ip=request.client.host if request and request.client else None,
+    )
+    return {"status": "disabled"}

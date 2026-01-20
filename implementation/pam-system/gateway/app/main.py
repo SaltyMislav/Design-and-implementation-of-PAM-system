@@ -10,6 +10,7 @@ import jwt
 import paramiko
 import requests
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 GATEWAY_JWT_SECRET = os.getenv("GATEWAY_JWT_SECRET", "dev-gateway-secret")
 VAULT_ADDR = os.getenv("VAULT_ADDR", "http://vault:8200")
@@ -141,7 +142,10 @@ async def websocket_proxy(websocket: WebSocket) -> None:
 
     try:
         while True:
-            message = await websocket.receive()
+            try:
+                message = await websocket.receive()
+            except RuntimeError:
+                break
             data: Optional[bytes] = None
             if message.get("bytes") is not None:
                 data = message["bytes"]
@@ -172,4 +176,5 @@ async def websocket_proxy(websocket: WebSocket) -> None:
         output_handle.close()
         cmd_handle.close()
         await _notify_session_end(session_id)
-        await websocket.close()
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()

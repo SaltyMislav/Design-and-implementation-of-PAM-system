@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, getErrorMessage } from "../api";
 import { useAuth } from "../App";
+import { useToast } from "../components/ToastProvider";
 
 export default function ApprovalsPage() {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [requests, setRequests] = useState([]);
   const [mfaCode, setMfaCode] = useState("");
 
@@ -25,6 +27,9 @@ export default function ApprovalsPage() {
     });
     if (response.ok) {
       load();
+      addToast(`Request ${actionName}d.`, "success");
+    } else {
+      addToast(await getErrorMessage(response), "error");
     }
   };
 

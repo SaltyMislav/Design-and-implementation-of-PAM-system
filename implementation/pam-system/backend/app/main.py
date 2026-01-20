@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, run_migrations
 from app.models import JitRequest
-from app.routes import assets, audit, auth, jit, roles, sessions
+from app.routes import assets, audit, auth, jit, roles, sessions, updates
 
 app = FastAPI(title="PAM Backend", version="0.1.0")
 
@@ -25,6 +25,7 @@ app.include_router(jit.router)
 app.include_router(sessions.router)
 app.include_router(audit.router)
 app.include_router(roles.router)
+app.include_router(updates.router)
 
 scheduler = BackgroundScheduler()
 

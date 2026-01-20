@@ -19,13 +19,22 @@ def create_jit_request(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> JitRequestResponse:
+    status_value = "PENDING"
+    approved_by = None
+    expires_at = None
+    if user.is_admin:
+        status_value = "APPROVED"
+        approved_by = user.id
+        expires_at = datetime.utcnow() + timedelta(minutes=payload.duration_minutes)
     jit = JitRequest(
         user_id=user.id,
         asset_id=payload.asset_id,
         role_id=payload.role_id,
         reason=payload.reason,
         duration_minutes=payload.duration_minutes,
-        status="PENDING",
+        status=status_value,
+        approved_by=approved_by,
+        expires_at=expires_at,
     )
     db.add(jit)
     db.commit()
@@ -38,6 +47,15 @@ def create_jit_request(
         resource_id=jit.id,
         ip=request.client.host if request.client else None,
     )
+    if user.is_admin and jit.status == "APPROVED":
+        create_audit_event(
+            db,
+            actor_id=user.id,
+            action="jit_auto_approve",
+            resource_type="jit_request",
+            resource_id=jit.id,
+            ip=request.client.host if request.client else None,
+        )
     return JitRequestResponse(
         id=jit.id,
         user_id=jit.user_id,

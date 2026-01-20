@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import QRCode from "qrcode";
-import { apiFetch } from "../api";
+import { apiFetch, getErrorMessage } from "../api";
 import { useAuth } from "../App";
+import { useToast } from "../components/ToastProvider";
 
 export default function MfaPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const { addToast } = useToast();
   const [secret, setSecret] = useState("");
   const [otpauth, setOtpauth] = useState("");
   const [qrUrl, setQrUrl] = useState("");
@@ -18,6 +20,9 @@ export default function MfaPage() {
       setOtpauth(data.otpauth_url);
       const url = await QRCode.toDataURL(data.otpauth_url);
       setQrUrl(url);
+      addToast("MFA secret generated.", "success");
+    } else {
+      addToast(await getErrorMessage(response), "error");
     }
   };
 
@@ -29,6 +34,30 @@ export default function MfaPage() {
     });
     if (response.ok) {
       setCode("");
+      setSecret("");
+      setOtpauth("");
+      setQrUrl("");
+      addToast("MFA enabled.", "success");
+      await refreshUser();
+    } else {
+      addToast(await getErrorMessage(response), "error");
+    }
+  };
+
+  const disableMfa = async () => {
+    const response = await apiFetch("/auth/mfa/disable", {
+      method: "POST",
+      headers: { "X-MFA-TOTP": code }
+    });
+    if (response.ok) {
+      setCode("");
+      setSecret("");
+      setOtpauth("");
+      setQrUrl("");
+      addToast("MFA disabled.", "success");
+      await refreshUser();
+    } else {
+      addToast(await getErrorMessage(response), "error");
     }
   };
 
@@ -39,7 +68,11 @@ export default function MfaPage() {
   return (
     <div className="card">
       <h2>Admin MFA Setup</h2>
-      <button onClick={setupMfa}>Generate Secret</button>
+      {user?.mfa_enabled ? (
+        <div className="notice">MFA is enabled. Disable it to enroll a new device.</div>
+      ) : (
+        <button onClick={setupMfa}>Generate Secret</button>
+      )}
       {secret && (
         <div>
           <p>Secret: {secret}</p>
@@ -48,7 +81,8 @@ export default function MfaPage() {
         </div>
       )}
       <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter MFA code" />
-      <button onClick={enableMfa}>Enable MFA</button>
+      {!user?.mfa_enabled && <button onClick={enableMfa}>Enable MFA</button>}
+      {user?.mfa_enabled && <button className="secondary" onClick={disableMfa}>Disable MFA</button>}
     </div>
   );
 }

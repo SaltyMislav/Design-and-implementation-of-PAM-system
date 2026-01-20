@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, getErrorMessage } from "../api";
 import { useAuth } from "../App";
+import { useToast } from "../components/ToastProvider";
 
 export default function AssetsPage() {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [assets, setAssets] = useState([]);
   const [form, setForm] = useState({ name: "", host: "", port: 2222, type: "ssh" });
   const [cred, setCred] = useState({ assetId: "", username: "", password: "" });
-  const [mfaCode, setMfaCode] = useState("");
+  const [assetMfaCode, setAssetMfaCode] = useState("");
+  const [credMfaCode, setCredMfaCode] = useState("");
 
   const loadAssets = async () => {
     const response = await apiFetch("/assets");
@@ -26,7 +29,7 @@ export default function AssetsPage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-MFA-TOTP": mfaCode
+        "X-MFA-TOTP": assetMfaCode
       },
       body: JSON.stringify({
         name: form.name,
@@ -38,6 +41,10 @@ export default function AssetsPage() {
     if (response.ok) {
       setForm({ name: "", host: "", port: 2222, type: "ssh" });
       loadAssets();
+      addToast("Asset created.", "success");
+      setAssetMfaCode("");
+    } else {
+      addToast(await getErrorMessage(response), "error");
     }
   };
 
@@ -47,12 +54,16 @@ export default function AssetsPage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-MFA-TOTP": mfaCode
+        "X-MFA-TOTP": credMfaCode
       },
       body: JSON.stringify({ username: cred.username, password: cred.password })
     });
     if (response.ok) {
       setCred({ assetId: "", username: "", password: "" });
+      addToast("Credential saved to Vault.", "success");
+      setCredMfaCode("");
+    } else {
+      addToast(await getErrorMessage(response), "error");
     }
   };
 
@@ -89,7 +100,7 @@ export default function AssetsPage() {
             <input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="Host" />
             <input value={form.port} onChange={(e) => setForm({ ...form, port: e.target.value })} placeholder="Port" />
             <input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="Type" />
-            <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} placeholder="MFA Code" />
+            <input value={assetMfaCode} onChange={(e) => setAssetMfaCode(e.target.value)} placeholder="MFA Code" />
             <button type="submit">Create</button>
           </form>
         </div>
@@ -98,10 +109,15 @@ export default function AssetsPage() {
         <div className="card">
           <h3>Store Credential in Vault (Admin + MFA)</h3>
           <form onSubmit={setCredential}>
-            <input value={cred.assetId} onChange={(e) => setCred({ ...cred, assetId: e.target.value })} placeholder="Asset ID" />
+            <select value={cred.assetId} onChange={(e) => setCred({ ...cred, assetId: e.target.value })}>
+              <option value="">Select asset</option>
+              {assets.map((asset) => (
+                <option key={asset.id} value={asset.id}>{asset.name} (ID {asset.id})</option>
+              ))}
+            </select>
             <input value={cred.username} onChange={(e) => setCred({ ...cred, username: e.target.value })} placeholder="Username" />
             <input type="password" value={cred.password} onChange={(e) => setCred({ ...cred, password: e.target.value })} placeholder="Password" />
-            <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} placeholder="MFA Code" />
+            <input value={credMfaCode} onChange={(e) => setCredMfaCode(e.target.value)} placeholder="MFA Code" />
             <button type="submit">Save Credential</button>
           </form>
         </div>

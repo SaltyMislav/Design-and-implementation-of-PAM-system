@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, getErrorMessage } from "../api";
+import { useToast } from "../components/ToastProvider";
 
 export default function JitRequestPage() {
+  const { addToast } = useToast();
   const [assets, setAssets] = useState([]);
   const [roles, setRoles] = useState([]);
   const [form, setForm] = useState({ asset_id: "", role_id: "", reason: "", duration_minutes: 30 });
@@ -34,6 +36,9 @@ export default function JitRequestPage() {
     });
     if (response.ok) {
       setForm({ asset_id: "", role_id: "", reason: "", duration_minutes: 30 });
+      addToast("JIT request submitted.", "success");
+    } else {
+      addToast(await getErrorMessage(response), "error");
     }
   };
 

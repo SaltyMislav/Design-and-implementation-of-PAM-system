@@ -105,5 +105,18 @@ class AuditEventResponse(BaseModel):
     metadata_json: Optional[dict]
 
 
+class CommandLogEntry(BaseModel):
+    ts: float
+    line: str
+
+
+class AuditPageResponse(BaseModel):
+    items: List[AuditEventResponse]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+
 class RoleListResponse(BaseModel):
     roles: List[RoleResponse]

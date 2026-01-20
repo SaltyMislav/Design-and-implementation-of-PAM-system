@@ -38,8 +38,26 @@ export async function apiFetch(path, options = {}) {
       setTokens(data.access_token, data.refresh_token);
       return apiFetch(path, options);
     }
+    window.dispatchEvent(new Event("auth:unauthorized"));
+  } else if (response.status === 401) {
+    window.dispatchEvent(new Event("auth:unauthorized"));
   }
   return response;
+}
+
+export async function getErrorMessage(response) {
+  try {
+    const data = await response.json();
+    if (typeof data.detail === "string") {
+      return data.detail;
+    }
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((item) => item.msg || item).join(", ");
+    }
+    return JSON.stringify(data);
+  } catch (err) {
+    return `${response.status} ${response.statusText}`;
+  }
 }
 
 export default API_URL;

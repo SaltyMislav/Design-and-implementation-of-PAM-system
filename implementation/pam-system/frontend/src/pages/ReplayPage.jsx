@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import { apiFetch } from "../api";
@@ -11,7 +11,9 @@ function decodeBase64(data) {
 
 export default function ReplayPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const termRef = useRef(null);
+  const timersRef = useRef([]);
   const [status, setStatus] = useState("Loading recording...");
 
   useEffect(() => {
@@ -41,23 +43,37 @@ export default function ReplayPage() {
       const start = entries[0].ts;
       entries.forEach((entry) => {
         const delay = Math.max(0, (entry.ts - start) * 1000);
-        setTimeout(() => {
+        const timerId = window.setTimeout(() => {
           const data = decodeBase64(entry.data);
           term.write(data);
         }, delay);
+        timersRef.current.push(timerId);
       });
       setStatus("Playing");
+      const lastEntry = entries[entries.length - 1];
+      const endDelay = Math.max(0, (lastEntry.ts - start) * 1000) + 150;
+      const endTimer = window.setTimeout(() => {
+        setStatus("Playback finished.");
+      }, endDelay);
+      timersRef.current.push(endTimer);
     };
 
     load();
     window.addEventListener("resize", () => fitAddon.fit());
 
-    return () => term.dispose();
+    return () => {
+      timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      timersRef.current = [];
+      term.dispose();
+    };
   }, [id]);
 
   return (
     <div className="card">
-      <h2>Session Replay</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Session Replay</h2>
+        <button className="secondary" onClick={() => navigate(-1)}>Back</button>
+      </div>
       <p>{status}</p>
       <div className="terminal" ref={termRef}></div>
     </div>

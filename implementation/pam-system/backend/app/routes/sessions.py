@@ -1,7 +1,9 @@
+import json
 import os
+from collections import deque
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -11,7 +13,8 @@ from app.core.deps import require_auth
 from app.core.security import create_gateway_token
 from app.db import get_db
 from app.models import Asset, Credential, JitRequest, Role, Session as SessionModel, User
-from app.schemas import SessionResponse, SessionStartRequest
+from app.schemas import CommandLogEntry, SessionResponse, SessionStartRequest
+from app.ws import manager
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -22,7 +25,7 @@ def _user_role_names(db: Session, user: User) -> set[str]:
 
 
 @router.post("/start")
-def start_session(
+async def start_session(
     payload: SessionStartRequest,
     request: Request,
     user: User = Depends(require_auth),
@@ -81,6 +84,7 @@ def start_session(
         ip=request.client.host if request.client else None,
         metadata={"vault_path": credential.vault_path},
     )
+    await manager.broadcast({"type": "session_started", "session_id": session.id})
     return {
         "session_id": session.id,
         "session_token": session_token,
@@ -128,8 +132,45 @@ def get_recording(
     return FileResponse(file_path, media_type="text/plain")
 
 
+@router.get("/{session_id}/commands", response_model=list[CommandLogEntry])
+def get_command_log(
+    session_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+    limit: int = Query(200, ge=1, le=1000),
+) -> list[CommandLogEntry]:
+    session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    if not user.is_admin:
+        jit = db.query(JitRequest).filter(JitRequest.id == session.jit_request_id).first()
+        if not jit or jit.user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    recording_name = os.path.basename(session.recording_path or "")
+    if recording_name.endswith(".log"):
+        base_name = recording_name[:-4]
+    else:
+        base_name = f"session-{session.id}"
+    cmd_path = os.path.join("/data/recordings", f"{base_name}.cmd.log")
+    if not os.path.exists(cmd_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Command log not available")
+    entries = deque(maxlen=limit)
+    with open(cmd_path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if "ts" in payload and "line" in payload:
+                entries.append(CommandLogEntry(ts=payload["ts"], line=payload["line"]))
+    return list(entries)
+
+
 @router.post("/{session_id}/end")
-def end_session(
+async def end_session(
     session_id: int,
     request: Request,
     db: Session = Depends(get_db),
@@ -152,4 +193,5 @@ def end_session(
         resource_id=session.id,
         ip=request.client.host if request.client else None,
     )
+    await manager.broadcast({"type": "session_ended", "session_id": session.id})
     return {"status": "ended"}
