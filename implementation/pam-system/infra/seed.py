@@ -77,20 +77,9 @@ def main() -> None:
             db.add(credential)
             db.commit()
 
-        if not admin.mfa_secret:
-            admin.mfa_secret = pyotp.random_base32()
-            admin.mfa_enabled = True
-            db.add(admin)
-            db.commit()
-
-        totp = pyotp.TOTP(admin.mfa_secret)
         print("Seed complete.")
         print(f"Admin: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
         print(f"User: {USER_EMAIL} / {USER_PASSWORD}")
-        print("Admin MFA secret (add to authenticator):")
-        print(admin.mfa_secret)
-        print("Admin MFA current code:")
-        print(totp.now())
     finally:
         db.close()
 
