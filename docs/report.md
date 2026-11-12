@@ -240,4 +240,4 @@ Sustav ne uključuje:
 
 ## 13. Zaključak
 
-PAM prototip pokazuje kako se privilegirani pristup može kontrolirati kroz privremene ovlasti, odobravanje, nadzor i reviziju. Sustav smanjuje rizik zlouporabe privilegiranih računa i povećava vidljivost nad kritičnim radnjama, predstavljajući čvrstu osnovu za daljnji razvoj prema produkcijskim PAM rješenjima.
+PAM prototip pokazuje kako se privilegirani pristup može kontrolirati kroz privremene ovlasti, odobravanje, nadzor i reviziju. Sustav smanjuje rizik zlouporabe privilegiranih računa i povećava vidljivost nad kritičnim radnjama, predstavljajući solidnu osnovu za daljnji razvoj prema produkcijskim PAM rješenjima.
